@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04 AS build
+LABEL Description="autodock:4.2.6 build"
+
+ENV TZ=America/Chicago \
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+SHELL ["/bin/bash", "-c"]
+
+COPY ./packages/4.2.6/autodocksuite-4.2.6-x86_64Linux2.tar \
+     ./packages/4.2.6/mgltools_x86_64Linux2_1.5.7.tar_.gz \
+     ./packages/4.2.6/mgltools_x86_64Linux2_1.5.7p1.tar.gz /app/
+
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install apt-utils \
+    vim && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+    #git wget unzip bzip2 sudo cmake vim build-essential ca-certificates \
+    #gcc g++ gfortran make gawk \
+    #libx11-dev libpython2.7 libsm6 libxext6 libxrender-dev && \
+
+RUN cd /app && \
+    tar -xf autodocksuite-4.2.6-x86_64Linux2.tar && rm autodocksuite-4.2.6-x86_64Linux2.tar && \
+    tar -xzf mgltools_x86_64Linux2_1.5.7.tar_.gz && rm mgltools_x86_64Linux2_1.5.7.tar_.gz && \
+    tar -xzf mgltools_x86_64Linux2_1.5.7p1.tar.gz && rm mgltools_x86_64Linux2_1.5.7p1.tar.gz
+
+RUN cd /app && mkdir autodock
+
+# Install MGLTools
+RUN cd /app/mgltools_x86_64Linux2_1.5.7 && \
+    ./install.sh -d /app/autodock
+
+# Install autodocksuite
+RUN mv /app/x86_64Linux2 /app/autodock/autodocksuite
+
+
+FROM ubuntu:20.04 AS runtime
+LABEL Description="autodock:4.2.6 runtime"
+
+COPY --from=build /app/autodock /app/autodock
+
+ENV PATH=/app/autodock/autodocksuite:/app/autodock/bin:${PATH}
+
+ENV TZ=America/Chicago \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install apt-utils \
+    vim && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /mnt
+
